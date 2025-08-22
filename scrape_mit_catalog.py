@@ -297,10 +297,13 @@ def main():
 
     scraped = {}
     for c in course_list:
+        print(f"Scraping course: {c}")
         try:
             obj = scrape_course(c)
             scraped[obj["code"]] = obj
+            print(f"✓ Successfully scraped {c} -> {obj['code']}: {obj['title']}")
         except Exception as e:
+            print(f"✗ Failed to scrape {c}: {e}")
             sys.stderr.write(f"[warn] {c}: {e}\n")
 
     if args.merge:

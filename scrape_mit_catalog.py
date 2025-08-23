@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-MIT Catalog Scraper (specific courses only)
--------------------------------------------
-Fetches and parses MIT's course catalog search result for given course codes
-(e.g., "6.1200", "18.06", "5.111") and outputs normalized JSON.
+MIT Catalog Scraper
+-------------------
+Fetches and parses MIT's course catalog search results and outputs normalized
+JSON for specific course codes or for the entire catalog listing.
 
 Usage:
   python3 scrape_mit_catalog.py 6.1200
   python3 scrape_mit_catalog.py 6.1200 18.06 8.02
   python3 scrape_mit_catalog.py --merge classes.json 6.1200 18.06
+  python3 scrape_mit_catalog.py --all --out classes.json
 
 Requires:
   pip install requests beautifulsoup4
@@ -31,7 +32,12 @@ except Exception:
     )
     raise
 
-BASE = "https://student.mit.edu/catalog/search.cgi?search={}"
+BASE = "https://student.mit.edu/catalog/search.cgi?search={}" 
+
+ALL_CLASSES_URL = (
+    "https://student.mit.edu/catalog/search.cgi?search=&style=verbatim&when=C&"
+    "termleng=4&days_offered=*&start_time=*&duration=*&total_units=*"
+)
 
 SKIP_ICON_ALTS = {"______", "Add to schedule"}
 
@@ -73,6 +79,28 @@ def fetch_html(course: str) -> str:
     r = requests.get(url, timeout=20)
     r.raise_for_status()
     return r.text
+
+
+def fetch_all_course_codes() -> List[str]:
+    """Fetch the catalog search page and return list of course codes."""
+    r = requests.get(ALL_CLASSES_URL, timeout=20)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
+    dl = soup.find("dl")
+    if not dl:
+        return []
+    codes: List[str] = []
+    for dt in dl.find_all("dt"):
+        a = dt.find("a")
+        if not a:
+            continue
+        href = a.get("href", "")
+        if "#" not in href:
+            continue
+        code = href.split("#", 1)[1].strip()
+        if code:
+            codes.append(code)
+    return codes
 
 
 # -----------------------
@@ -248,18 +276,27 @@ def merge_into_nodes(nodes: Dict[str, Dict], course_obj: Dict) -> Dict[str, Dict
 # -----------------------
 
 def main():
-    ap = argparse.ArgumentParser(description="Scrape MIT catalog for course info (specific courses only).")
+    ap = argparse.ArgumentParser(description="Scrape MIT catalog for course info.")
     # Put optionals BEFORE the positional to avoid “unrecognized arguments” confusion
     ap.add_argument("--merge", metavar="CLASSES_JSON",
                     help="Path to classes.json to merge into (updates nodes only)")
     ap.add_argument("--out", metavar="OUT_JSON",
                     help="Write scraped output JSON to a file (default: stdout)")
-    ap.add_argument("courses", nargs="+",
+    ap.add_argument("--all", action="store_true",
+                    help="Scrape all classes from the catalog search page")
+    ap.add_argument("courses", nargs="*",
                     help="Course numbers like 6.1200 18.06 5.111")
     args = ap.parse_args()
 
+    if args.all:
+        course_list = fetch_all_course_codes()
+    else:
+        if not args.courses:
+            ap.error("No courses specified (use --all or provide course codes)")
+        course_list = args.courses
+
     scraped = {}
-    for c in args.courses:
+    for c in course_list:
         try:
             obj = scrape_course(c)
             scraped[obj["code"]] = obj

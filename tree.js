@@ -23,7 +23,7 @@ function buildGraph(data) {
         parsePrereqs(c.prereq_text).forEach(pr => {
             const source = nodeId(pr);
             if (courseMap[source]) {
-                g.setEdge(source, target);
+                g.setEdge(source, target, {});
             }
         });
     });

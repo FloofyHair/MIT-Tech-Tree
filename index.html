@@ -8,149 +8,25 @@
                 font-family: sans-serif;
                 margin: 20px;
             }
-            .row {
-                margin-bottom: 40px;
-                white-space: nowrap;
-            }
-            .node {
-                display: inline-block;
-                padding: 4px 8px;
-                margin: 4px;
-                border: 1px solid #999;
-                border-radius: 4px;
-                background: #f9f9f9;
-                transition: background 0.2s, border-color 0.2s;
-            }
-            .node.active {
-                background: #ffd;
-                border-color: #333;
-            }
             svg {
-                position: absolute;
-                top: 0;
-                left: 0;
-                pointer-events: none;
                 overflow: visible;
+            }
+            .node rect {
+                stroke: #999;
+                fill: var(--node-color, #f9f9f9);
+                transition: fill 0.2s, stroke 0.2s;
+            }
+            .node.active rect {
+                fill: #ffd;
+                stroke: #333;
             }
         </style>
     </head>
     <body>
         <h1>MIT Class Tech Tree</h1>
-        <div id="tree"></div>
-        <svg id="lines"></svg>
+        <svg id="tree"></svg>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.4/d3.min.js"></script>
-        <script>
-            function parsePrereqs(txt) {
-                if (!txt) return [];
-                const matches = txt.match(/\b\d{1,2}\.\d+[A-Z]*\b/g);
-                return matches ? matches : [];
-            }
-
-            function buildTree(data) {
-                const nodes = Object.values(data).map((c) => ({
-                    code: c.code,
-                    title: c.title,
-                    color: c.color || "#f9f9f9",
-                    prereqs: parsePrereqs(c.prereq_text),
-                }));
-
-                const placed = new Map();
-                const levels = [];
-                while (nodes.length) {
-                    const level = nodes.filter((n) =>
-                        n.prereqs.every((p) => placed.has(p))
-                    );
-                    if (level.length === 0) {
-                        level.push(...nodes); // break cycle if any
-                    }
-                    levels.push(level);
-                    level.forEach((n) => placed.set(n.code, levels.length - 1));
-                    for (const n of level) {
-                        const idx = nodes.indexOf(n);
-                        if (idx !== -1) nodes.splice(idx, 1);
-                    }
-                }
-
-                const tree = d3.select("#tree");
-                levels.forEach((level, i) => {
-                    const row = tree
-                        .append("div")
-                        .attr("class", "row")
-                        .attr("data-level", i);
-                    level.forEach((node) => {
-                        const nodeEl = row
-                            .append("div")
-                            .attr("class", "node")
-                            .attr("id", node.code.replace(/\./g, "_"))
-                            .style("background", node.color)
-                            .text(node.code);
-
-                        nodeEl.on("mouseover", () => {
-                            nodeEl.classed("active", true);
-                            node.prereqs.forEach((pr) => {
-                                d3.select(`#${pr.replace(/\./g, "_")}`).classed(
-                                    "active",
-                                    true
-                                );
-                            });
-                        });
-                        nodeEl.on("mouseout", () => {
-                            d3.selectAll(".node").classed("active", false);
-                        });
-                    });
-                });
-
-                drawLines(levels);
-            }
-
-            function drawLines(levels) {
-                const svg = d3.select("#lines");
-                svg.attr("width", document.documentElement.scrollWidth);
-                svg.attr("height", document.documentElement.scrollHeight);
-                const defs = svg.append("defs");
-                defs.append("marker")
-                    .attr("id", "arrow")
-                    .attr("viewBox", "0 -5 10 10")
-                    .attr("refX", 8)
-                    .attr("refY", 0)
-                    .attr("markerWidth", 6)
-                    .attr("markerHeight", 6)
-                    .attr("orient", "auto")
-                    .append("path")
-                    .attr("d", "M0,-5L10,0L0,5")
-                    .attr("fill", "#999");
-
-                levels.forEach((level) => {
-                    level.forEach((node) => {
-                        const el = document.getElementById(
-                            node.code.replace(/\./g, "_")
-                        );
-                        const rect = el.getBoundingClientRect();
-                        node.prereqs.forEach((pr) => {
-                            const pe = document.getElementById(
-                                pr.replace(/\./g, "_")
-                            );
-                            if (!pe) return;
-                            const prect = pe.getBoundingClientRect();
-                            svg.append("line")
-                                .attr("x1", prect.left + prect.width / 2)
-                                .attr("y1", prect.bottom)
-                                .attr("x2", rect.left + rect.width / 2)
-                                .attr("y2", rect.top)
-                                .attr("stroke", "#999")
-                                .attr("marker-end", "url(#arrow)");
-                        });
-                    });
-                });
-            }
-
-            fetch("classes.json")
-                .then((r) => r.json())
-                .then(buildTree)
-                .catch((err) => {
-                    document.getElementById("tree").innerText =
-                        "Failed to load classes.json: " + err;
-                });
-        </script>
+        <script src="https://unpkg.com/dagre-d3@0.6.4/dist/dagre-d3.min.js"></script>
+        <script src="tree.js"></script>
     </body>
 </html>

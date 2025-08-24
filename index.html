@@ -8,8 +8,13 @@
                 font-family: sans-serif;
                 margin: 20px;
             }
+            .group {
+                display: inline-block;
+                margin: 20px;
+            }
             .row {
-                margin-bottom: 40px;
+                margin-bottom: 10px;
+                text-align: center;
                 white-space: nowrap;
             }
             .node {
@@ -24,9 +29,8 @@
                 position: absolute;
                 top: 0;
                 left: 0;
-                width: 100%;
-                height: 100%;
                 pointer-events: none;
+                overflow: visible;
             }
         </style>
     </head>
@@ -50,45 +54,35 @@
                     prereqs: parsePrereqs(c.prereq_text),
                 }));
 
-                const placed = new Map();
-                const levels = [];
-                while (nodes.length) {
-                    const level = nodes.filter((n) =>
-                        n.prereqs.every((p) => placed.has(p))
-                    );
-                    if (level.length === 0) {
-                        level.push(...nodes); // break cycle if any
-                    }
-                    levels.push(level);
-                    level.forEach((n) => placed.set(n.code, levels.length - 1));
-                    for (const n of level) {
-                        const idx = nodes.indexOf(n);
-                        if (idx !== -1) nodes.splice(idx, 1);
-                    }
-                }
-
                 const tree = d3.select("#tree");
-                levels.forEach((level, i) => {
-                    const row = tree
-                        .append("div")
-                        .attr("class", "row")
-                        .attr("data-level", i);
-                    level.forEach((node) => {
-                        row.append("div")
+                nodes.forEach((node, i) => {
+                    const group = tree.append("div").attr("class", "group");
+
+                    const prereqRow = group.append("div").attr("class", "row prereqs");
+                    node.prereqs.forEach((pr) => {
+                        prereqRow
+                            .append("div")
                             .attr("class", "node")
-                            .attr("id", node.code.replace(/\./g, "_"))
-                            .style("background", node.color)
-                            .text(node.code);
+                            .attr("id", `g${i}_` + pr.replace(/\./g, "_"))
+                            .text(pr);
                     });
+
+                    const courseRow = group.append("div").attr("class", "row course");
+                    courseRow
+                        .append("div")
+                        .attr("class", "node")
+                        .attr("id", `g${i}_` + node.code.replace(/\./g, "_"))
+                        .style("background", node.color)
+                        .text(node.code);
                 });
 
-                drawLines(levels);
+                drawLines(nodes);
             }
 
-            function drawLines(levels) {
+            function drawLines(nodes) {
                 const svg = d3.select("#lines");
-                svg.attr("width", document.body.scrollWidth);
-                svg.attr("height", document.body.scrollHeight);
+                svg.attr("width", document.documentElement.scrollWidth);
+                svg.attr("height", document.documentElement.scrollHeight);
                 const defs = svg.append("defs");
                 defs.append("marker")
                     .attr("id", "arrow")
@@ -102,26 +96,24 @@
                     .attr("d", "M0,-5L10,0L0,5")
                     .attr("fill", "#999");
 
-                levels.forEach((level) => {
-                    level.forEach((node) => {
-                        const el = document.getElementById(
-                            node.code.replace(/\./g, "_")
+                nodes.forEach((node, i) => {
+                    const el = document.getElementById(
+                        `g${i}_` + node.code.replace(/\./g, "_")
+                    );
+                    const rect = el.getBoundingClientRect();
+                    node.prereqs.forEach((pr) => {
+                        const pe = document.getElementById(
+                            `g${i}_` + pr.replace(/\./g, "_")
                         );
-                        const rect = el.getBoundingClientRect();
-                        node.prereqs.forEach((pr) => {
-                            const pe = document.getElementById(
-                                pr.replace(/\./g, "_")
-                            );
-                            if (!pe) return;
-                            const prect = pe.getBoundingClientRect();
-                            svg.append("line")
-                                .attr("x1", prect.left + prect.width / 2)
-                                .attr("y1", prect.bottom)
-                                .attr("x2", rect.left + rect.width / 2)
-                                .attr("y2", rect.top)
-                                .attr("stroke", "#999")
-                                .attr("marker-end", "url(#arrow)");
-                        });
+                        if (!pe) return;
+                        const prect = pe.getBoundingClientRect();
+                        svg.append("line")
+                            .attr("x1", prect.left + prect.width / 2)
+                            .attr("y1", prect.bottom)
+                            .attr("x2", rect.left + rect.width / 2)
+                            .attr("y2", rect.top)
+                            .attr("stroke", "#999")
+                            .attr("marker-end", "url(#arrow)");
                     });
                 });
             }
